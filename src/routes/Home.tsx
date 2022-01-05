@@ -7,6 +7,7 @@ import { useState } from "react";
 
 const Wrapper = styled.div`
   background: black;
+  padding-bottom: 200px;
 `;
 
 const Loader = styled.div`
@@ -44,30 +45,34 @@ const Slider = styled.div`
 
 const Row = styled(motion.div)`
   display: grid;
-  gap: 10px;
+  gap: 5px;
   grid-template-columns: repeat(6, 1fr);
   position: absolute;
   width: 100%;
 `;
 
-const Box = styled(motion.div)`
+const Box = styled(motion.div)<{ bgPhoto: string }>`
   background-color: white;
+  background-image: url(${(props) => props.bgPhoto});
+  background-size: cover;
+  background-position: center center;
   height: 200px;
-  color: red;
   font-size: 66px;
 `;
 
 const rowVariants = {
   hidden: {
-    x: window.outerWidth + 10,
+    x: window.outerWidth + 5,
   },
   visible: {
     x: 0,
   },
   exit: {
-    x: -window.outerWidth - 10,
+    x: -window.outerWidth - 5,
   },
 };
+
+const offset = 6;
 
 function Home() {
   const { data, isLoading } = useQuery<IGetMoviesResult>(
@@ -75,7 +80,18 @@ function Home() {
     getMovies
   );
   const [index, setIndex] = useState(0);
-  const incraseIndex = () => setIndex((prev) => prev + 1);
+  const [leaving, setLeaving] = useState(false);
+  const incraseIndex = () => {
+    if (data) {
+      if (leaving) return;
+      toggleLeaving();
+      const totalMovies = data.results.length - 1;
+      const maxIndex = Math.floor(totalMovies / offset) - 1; // 2
+      setIndex((prev) => (prev === maxIndex ? 0 : prev + 1));
+    }
+  };
+  // 쓰로틀링 개념
+  const toggleLeaving = () => setLeaving((prev) => !prev);
   return (
     <Wrapper>
       {isLoading ? (
@@ -90,7 +106,8 @@ function Home() {
             <Overview>{data?.results[0].overview}</Overview>
           </Banner>
           <Slider>
-            <AnimatePresence>
+            {/* initial= false 오른쪽에서 들어오지 않음 */}
+            <AnimatePresence initial={false} onExitComplete={toggleLeaving}>
               <Row
                 variants={rowVariants}
                 initial="hidden"
@@ -98,10 +115,17 @@ function Home() {
                 exit="exit"
                 transition={{ type: "tween", duration: 1 }}
                 key={index}
+                // key로 슬라이드 관리
               >
-                {[1, 2, 3, 4, 5, 6].map((i) => (
-                  <Box key={i}>{i}</Box>
-                ))}
+                {data?.results
+                  .slice(1)
+                  .slice(offset * index, offset * index + offset)
+                  .map((movie) => (
+                    <Box
+                      key={movie.id}
+                      bgPhoto={makeImagePath(movie.backdrop_path, "w500")}
+                    />
+                  ))}
               </Row>
             </AnimatePresence>
           </Slider>
